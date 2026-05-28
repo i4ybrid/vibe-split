@@ -28,6 +28,9 @@ import {
   ToggleButtonGroup,
   Switch,
   Tooltip,
+  useMediaQuery,
+  useTheme,
+  Autocomplete,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -43,9 +46,12 @@ import {
   EmojiEmotions as CuteIcon,
   SportsEsports as GamerIcon,
   Refresh as RefreshIcon,
+  AttachMoney as AttachMoneyIcon,
 } from '@mui/icons-material'
+import currencies from './currencies.json'
 
 const STORAGE_KEY = 'vibe-split-data'
+const CURRENCY_STORAGE_KEY = 'vibe-split-currency'
 
 function App({ themeMode, onToggleTheme }) {
   const [members, setMembers] = useState([])
@@ -63,6 +69,13 @@ function App({ themeMode, onToggleTheme }) {
   const [showAddItem, setShowAddItem] = useState(false)
   const [editingItemId, setEditingItemId] = useState(null)
   const [lastParticipants, setLastParticipants] = useState([])
+  const [currency, setCurrency] = useState(() => {
+    const saved = localStorage.getItem(CURRENCY_STORAGE_KEY)
+    return saved || 'USD'
+  })
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+  const currencyData = currencies.find(c => c.code === currency) || currencies[0]
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY)
@@ -100,6 +113,10 @@ function App({ themeMode, onToggleTheme }) {
       setLastParticipants(prev => prev.filter(p => memberIds.has(p)))
     }
   }, [members, loaded])
+
+  useEffect(() => {
+    localStorage.setItem(CURRENCY_STORAGE_KEY, currency)
+  }, [currency])
 
   const resetAll = useCallback(() => {
     if (window.confirm('Start over? This will clear all members and items.')) {
@@ -212,12 +229,17 @@ function App({ themeMode, onToggleTheme }) {
       .reduce((sum, item) => sum + (item.price * item.quantity), 0)
 
     const percentageItems = items.filter(item => item.type === 'percentage')
+    const feeItems = items.filter(item => item.type === 'fee')
 
     const percentageTotal = percentageItems.reduce((sum, item) => {
       return sum + (subtotal * item.price / 100)
     }, 0)
 
-    const total = subtotal + percentageTotal
+    const feeTotal = feeItems.reduce((sum, item) => {
+      return sum + item.price
+    }, 0)
+
+    const total = subtotal + percentageTotal + feeTotal
 
     const memberTotals = {}
     members.forEach(member => {
@@ -235,9 +257,9 @@ function App({ themeMode, onToggleTheme }) {
       }
     })
 
-    const percentagePerMember = {}
+    const proportionalPerMember = {}
     members.forEach(member => {
-      percentagePerMember[member.id] = 0
+      proportionalPerMember[member.id] = 0
     })
 
     if (subtotal > 0 && members.length > 0) {
@@ -246,7 +268,15 @@ function App({ themeMode, onToggleTheme }) {
         members.forEach(member => {
           if (memberTotals[member.id] > 0) {
             const proportion = memberTotals[member.id] / subtotal
-            percentagePerMember[member.id] += subtotal * memberShare * proportion
+            proportionalPerMember[member.id] += subtotal * memberShare * proportion
+          }
+        })
+      })
+      feeItems.forEach(item => {
+        members.forEach(member => {
+          if (memberTotals[member.id] > 0) {
+            const proportion = memberTotals[member.id] / subtotal
+            proportionalPerMember[member.id] += item.price * proportion
           }
         })
       })
@@ -254,18 +284,18 @@ function App({ themeMode, onToggleTheme }) {
 
     const finalTotals = {}
     members.forEach(member => {
-      finalTotals[member.id] = memberTotals[member.id] + percentagePerMember[member.id]
+      finalTotals[member.id] = memberTotals[member.id] + proportionalPerMember[member.id]
     })
 
-    return { subtotal, percentageTotal, total, memberTotals: finalTotals }
+    return { subtotal, percentageTotal, feeTotal, total, memberTotals: finalTotals }
   }, [items, members])
 
   const split = calculateSplit()
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat(currencyData.locale, {
       style: 'currency',
-      currency: 'USD',
+      currency: currency,
     }).format(amount)
   }
 
@@ -307,11 +337,11 @@ function App({ themeMode, onToggleTheme }) {
               >
                 <ToggleButton value="cute" sx={{ gap: 0.5 }}>
                   <CuteIcon fontSize="small" />
-                  <Typography variant="caption">Cute</Typography>
+                  {!isMobile && <Typography variant="caption">Cute</Typography>}
                 </ToggleButton>
                 <ToggleButton value="gamer" sx={{ gap: 0.5 }}>
                   <GamerIcon fontSize="small" />
-                  <Typography variant="caption">Gamer</Typography>
+                  {!isMobile && <Typography variant="caption">Gamer</Typography>}
                 </ToggleButton>
               </ToggleButtonGroup>
             </Box>
@@ -436,7 +466,7 @@ function App({ themeMode, onToggleTheme }) {
                             <Grid size={{ xs: 12, sm: 3 }}>
                               <TextField
                                 fullWidth
-                                label={item.type === 'percentage' ? 'Percentage' : 'Price'}
+                                label={item.type === 'percentage' ? 'Percentage' : item.type === 'fee' ? 'Amount' : 'Price'}
                                 type="number"
                                 value={item.price}
                                 onChange={(e) => {
@@ -444,7 +474,7 @@ function App({ themeMode, onToggleTheme }) {
                                   setItems(updated)
                                 }}
                                 InputProps={{
-                                  startAdornment: item.type === 'item' ? <InputAdornment position="start">$</InputAdornment> : null,
+                                  startAdornment: item.type === 'item' || item.type === 'fee' ? <InputAdornment position="start">{currencyData.symbol}</InputAdornment> : null,
                                   endAdornment: item.type === 'percentage' ? <InputAdornment position="end">%</InputAdornment> : null,
                                 }}
                               />
@@ -540,6 +570,8 @@ function App({ themeMode, onToggleTheme }) {
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               {item.type === 'percentage' ? (
                                 <PercentIcon sx={{ color: 'secondary.main' }} />
+                              ) : item.type === 'fee' ? (
+                                <AttachMoneyIcon sx={{ color: 'secondary.main' }} />
                               ) : (
                                 <ReceiptIcon sx={{ color: 'primary.main' }} />
                               )}
@@ -549,7 +581,7 @@ function App({ themeMode, onToggleTheme }) {
                                 </Typography>
                                 {item.type !== 'item' && (
                                   <Typography variant="caption" color="text.secondary">
-                                    {item.type === 'percentage' ? `${item.price}%` : 'Fixed'}
+                                    {item.type === 'percentage' ? `${item.price}%` : `${currencyData.symbol}${item.price}`}
                                   </Typography>
                                 )}
                               </Box>
@@ -567,7 +599,9 @@ function App({ themeMode, onToggleTheme }) {
                               >
                                 {formatCurrency(item.type === 'percentage' 
                                   ? split.subtotal * item.price / 100 
-                                  : item.price * item.quantity)}
+                                  : item.type === 'fee' 
+                                    ? item.price 
+                                    : item.price * item.quantity)}
                               </Typography>
                               <IconButton size="small" onClick={(e) => { e.stopPropagation(); deleteItem(item.id) }}>
                                 <DeleteIcon fontSize="small" />
@@ -664,24 +698,12 @@ function App({ themeMode, onToggleTheme }) {
                             onChange={(e) => setNewItem({ ...newItem, type: e.target.value })}
                           >
                             <MenuItem value="item">Item</MenuItem>
-                            <MenuItem value="percentage">Tip / Tax</MenuItem>
+                            <MenuItem value="percentage">Fee (%)</MenuItem>
+                            <MenuItem value="fee">{`Fee (${currencyData.symbol})`}</MenuItem>
                           </Select>
                         </FormControl>
                       </Grid>
-                      {newItem.type === 'item' ? (
-                        <Grid size={{ xs: 12, sm: 3 }}>
-                          <TextField
-                            fullWidth
-                            label="Price"
-                            type="number"
-                            value={newItem.price}
-                            onChange={(e) => setNewItem({ ...newItem, price: e.target.value })}
-                            InputProps={{
-                              startAdornment: <InputAdornment position="start">$</InputAdornment>,
-                            }}
-                          />
-                        </Grid>
-                      ) : (
+                      {newItem.type === 'percentage' ? (
                         <Grid size={{ xs: 12, sm: 3 }}>
                           <TextField
                             fullWidth
@@ -691,6 +713,19 @@ function App({ themeMode, onToggleTheme }) {
                             onChange={(e) => setNewItem({ ...newItem, price: e.target.value })}
                             InputProps={{
                               endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                            }}
+                          />
+                        </Grid>
+                      ) : (
+                        <Grid size={{ xs: 12, sm: 3 }}>
+                          <TextField
+                            fullWidth
+                            label={newItem.type === 'fee' ? 'Amount' : 'Price'}
+                            type="number"
+                            value={newItem.price}
+                            onChange={(e) => setNewItem({ ...newItem, price: e.target.value })}
+                            InputProps={{
+                              startAdornment: <InputAdornment position="start">{currencyData.symbol}</InputAdornment>,
                             }}
                           />
                         </Grid>
@@ -811,6 +846,30 @@ function App({ themeMode, onToggleTheme }) {
                   <CalculateIcon sx={{ color: 'secondary.main' }} />
                   <Typography variant="h3">Summary</Typography>
                 </Box>
+                <Autocomplete
+                  size="small"
+                  options={currencies}
+                  value={currencyData}
+                  onChange={(_, newValue) => newValue && setCurrency(newValue.code)}
+                  getOptionLabel={(option) => `${option.flag} ${option.code}`}
+                  isOptionEqualToValue={(option, value) => option.code === value.code}
+                  fullWidth
+                  sx={{ mb: 2 }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      variant="outlined"
+                      sx={{
+                        '& .MuiOutlinedInput-input': { fontSize: '0.8rem', py: 0.5 },
+                      }}
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <li {...props}>
+                      <Typography variant="body2">{option.flag} {option.code}</Typography>
+                    </li>
+                  )}
+                />
 
                 <Box sx={{ mb: 3 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
@@ -824,12 +883,23 @@ function App({ themeMode, onToggleTheme }) {
                   </Box>
                   {split.percentageTotal > 0 && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography variant="body2" color="text.secondary">Tax & Tips</Typography>
+                      <Typography variant="body2" color="text.secondary">Fee (%)</Typography>
                       <Typography
                         variant="body1"
                         sx={{ fontFamily: '"JetBrains Mono", monospace', color: 'secondary.main' }}
                       >
                         {formatCurrency(split.percentageTotal)}
+                      </Typography>
+                    </Box>
+                  )}
+                  {split.feeTotal > 0 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="body2" color="text.secondary">{`Fee (${currencyData.symbol})`}</Typography>
+                      <Typography
+                        variant="body1"
+                        sx={{ fontFamily: '"JetBrains Mono", monospace', color: 'secondary.main' }}
+                      >
+                        {formatCurrency(split.feeTotal)}
                       </Typography>
                     </Box>
                   )}

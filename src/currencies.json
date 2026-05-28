@@ -1,0 +1,14 @@
+[
+  { "code": "USD", "symbol": "$", "name": "US Dollar", "country": "United States", "flag": "🇺🇸", "locale": "en-US" },
+  { "code": "EUR", "symbol": "€", "name": "Euro", "country": "European Union", "flag": "🇪🇺", "locale": "de-DE" },
+  { "code": "GBP", "symbol": "£", "name": "British Pound", "country": "United Kingdom", "flag": "🇬🇧", "locale": "en-GB" },
+  { "code": "CNY", "symbol": "¥", "name": "Chinese Yuan", "country": "China", "flag": "🇨🇳", "locale": "zh-CN" },
+  { "code": "VND", "symbol": "₫", "name": "Vietnamese Dong", "country": "Vietnam", "flag": "🇻🇳", "locale": "vi-VN" },
+  { "code": "JPY", "symbol": "¥", "name": "Japanese Yen", "country": "Japan", "flag": "🇯🇵", "locale": "ja-JP" },
+  { "code": "KRW", "symbol": "₩", "name": "South Korean Won", "country": "South Korea", "flag": "🇰🇷", "locale": "ko-KR" },
+  { "code": "INR", "symbol": "₹", "name": "Indian Rupee", "country": "India", "flag": "🇮🇳", "locale": "en-IN" },
+  { "code": "CAD", "symbol": "CA$", "name": "Canadian Dollar", "country": "Canada", "flag": "🇨🇦", "locale": "en-CA" },
+  { "code": "AUD", "symbol": "AU$", "name": "Australian Dollar", "country": "Australia", "flag": "🇦🇺", "locale": "en-AU" },
+  { "code": "BRL", "symbol": "R$", "name": "Brazilian Real", "country": "Brazil", "flag": "🇧🇷", "locale": "pt-BR" },
+  { "code": "CHF", "symbol": "CHF", "name": "Swiss Franc", "country": "Switzerland", "flag": "🇨🇭", "locale": "de-CH" }
+]
